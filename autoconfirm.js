@@ -1,7 +1,7 @@
 const ynsTag = `[Youtube NonStop v${chrome.runtime.getManifest().version}]`;
 const isYoutubeMusic = window.location.hostname === 'music.youtube.com';
 const checkIfPausedTimeout = 2000; //timeout time to check if the video is paused after interaction
-const idleTimeout = 3000; //time to pass without interaction to consider the page idle
+const idleTimeout = 300; //time to pass without interaction to consider the page idle
 const resetActedTime = 1000; //to avoid spamming clicks on the dialog
 let lastInteractionTime = new Date().getTime();
 let hasActedOnDialog = false;
@@ -12,6 +12,7 @@ let isHoldingMouseDown = false; //to avoid taking action when mouse is being hel
 let confirmDialogElement = isYoutubeMusic
   ? 'ytmusic-you-there-renderer'
   : 'yt-confirm-dialog-renderer'; //the element that contains the confirm dialog
+let loginDialogElement = 'yt-upsell-dialog-renderer';
 let isObservingDialog = false;
 let dialogObserver = null;
 
@@ -117,28 +118,60 @@ function resetInteractionIfNotPaused() {
 /* ACTIONS */
 
 function clickDialog() {
+  debug('clickDialog()');
+  let dialog = document.querySelector(confirmDialogElement);
+  let button = 'yt-button-renderer[dialog-confirm]';
+  if (dialog == null) {
+    dialog = document.querySelector(loginDialogElement);
+    button = 'yt-button-renderer';
+  }
+
   if (
-    document.querySelector(confirmDialogElement).parentElement.style.display !==
+    dialog.parentElement.style.display !==
       'none' &&
     !hasActedOnDialog
   ) {
     debug('Detected confirm dialog');
-    if (!isIdle()) return;
+    //if (!isIdle()) return;
 
-    document
-      .querySelector(confirmDialogElement)
-      .querySelector('yt-button-renderer[dialog-confirm]')
+    dialog
+      .querySelector(button)
       .click();
     hasActedOnDialog = true;
     setTimeout(() => (hasActedOnDialog = false), resetActedTime);
     debug('Clicked dialog!');
+
+    //debug(videoElement.play().then(() => (debug('ok')),() => (debug('not ok'))));
+    //debug('Unpaused video! 3');
+    //setTimeout(() => (unpauseVideo()), 5000);
+    unpauseVideo();
   }
 }
 
 function unpauseVideo() {
+  debug('trying to unpause');
   if (!isIdle()) return;
 
-  videoElement.play();
+  try {
+    var id = 'ytd-player'; // movie_player
+    debug('trying ' + id + '.play()');
+    debug(document.querySelector(id).play());
+  } catch (err) {
+    debug(err.message);
+    try {
+      debug('trying querySelector(ytp-large-play-button ytp-button).click()');
+      document.querySelector('.ytp-large-play-button.ytp-button').click();
+    } catch (err) {
+      debug(err.message);
+      try {
+        debug('trying videoElement.play()');
+        videoElement.play();
+      } catch (err) {
+        debug(err.message);
+        return;
+      }
+    }
+  }
   debug('Unpaused video!');
 }
 
@@ -167,7 +200,11 @@ function observeDialog() {
   }
 
   if (!isObservingDialog) {
-    const el = document.querySelectorAll(confirmDialogElement);
+    el = document.querySelectorAll(confirmDialogElement);
+    if (el.length === 0) {
+      el = document.querySelectorAll(loginDialogElement);
+    }
+
     if (el.length === 1) {
       dialogObserver.observe(el[0].parentElement, {
         attributeFilter: ['style'],
