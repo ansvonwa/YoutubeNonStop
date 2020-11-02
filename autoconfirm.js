@@ -119,6 +119,7 @@ function resetInteractionIfNotPaused() {
 
 function clickDialog() {
   debug('clickDialog()');
+  resetInteractionIfNotPaused();
   let dialog = document.querySelector(confirmDialogElement);
   let button = 'yt-button-renderer[dialog-confirm]';
   if (dialog == null) {
